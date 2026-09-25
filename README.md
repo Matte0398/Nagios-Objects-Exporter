@@ -129,3 +129,33 @@ For example, given a service using `check_disk!20%!10%` and a command definition
 | Shell errors mentioning `\r` | Save the script with Unix line endings (LF) before running it in Bash.                                                     |
 
 The script prints `CSV created: <path>` after processing. It does not explicitly propagate every read or write failure, so also check error output and the generated file when using it in automation.
+
+## Example exports
+
+The CSV exports generated with the following commands are available in the [examples directory](examples/). Each output was saved under a descriptive filename for reference.
+
+1. Export services whose descriptions contain `ROOT PARTITION` for host names containing `localhost`:
+
+   ```bash
+   ./ngs_object_info.sh -H localhost -s "ROOT PARTITION"
+   ```
+
+   View [localhost_root_partition.csv](examples/localhost_root_partition.csv).
+
+2. Export all host and service checks:
+
+   ```bash
+   ./ngs_object_info.sh -a
+   ```
+
+   View [all_metrics.csv](examples/all_metrics.csv).
+
+3. Export services whose descriptions contain `current load`:
+
+   ```bash
+   ./ngs_object_info.sh -s "current load"
+   ```
+
+   View [current_load_services.csv](examples/current_load_services.csv).
+
+Filters are case-insensitive. These commands use the default input cache path and overwrite `nagios_objects.csv` in the current directory; use `-O <output_csv>` to choose a different output filename.
