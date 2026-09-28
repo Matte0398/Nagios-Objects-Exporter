@@ -10,7 +10,7 @@ The script collects check command names and arguments, substitutes `$ARGn$` macr
 - Read access to a Nagios `objects.cache` file containing the object and command definitions to export.
 - Write access to the output directory, which must already exist.
 
-No additional libraries or build steps are required. On Windows, run the script from an environment providing these tools, such as WSL or Git Bash.
+No additional libraries or build steps are required.
 
 ## Quick start
 
@@ -111,9 +111,7 @@ For example, given a service using `check_disk!20%!10%` and a command definition
 - Warning options recognized: `-w`, `--warning`, `--warn`, `-warning`, and `-warn`.
 - Critical options recognized: `-c`, `--critical`, `--crit`, `-critical`, and `-crit`.
 - Options support a separate value or an equals sign, such as `-w 80` and `--warning=80`. Attached values such as `-w80` are not recognized.
-- Threshold values are copied as text. The script does not interpret ranges, units, or plugin-specific semantics.
 - Only supplied `$ARGn$` macros are substituted. Other macros, including `$USER1$`, `$HOSTADDRESS$`, and custom macros, remain unresolved; `resource.cfg` is not read.
-- Argument splitting supports escaped separators such as `\!`, but command expansion and threshold extraction are text-based. They do not fully parse shell quoting or complex commands; review results for arguments containing special characters or spaces.
 - If a command definition is missing, the row still contains the command name and arguments, while the expanded command and thresholds remain empty.
 - Objects without a host name or a check command are skipped. The script expects the multiline `define host`, `define service`, and `define command` blocks used in `objects.cache`.
 - The export describes the supplied configuration snapshot. It does not include live status, check results, or performance data.
@@ -126,13 +124,12 @@ For example, given a service using `check_disk!20%!10%` and a command definition
 | CSV contains only the header | Check the filters and confirm that the cache contains matching objects with a host name and check command.                 |
 | Empty threshold columns      | Check that the matching command definition exists and uses one of the supported threshold options with extractable values. |
 | CSV cannot be written        | Confirm that the output directory exists and is writable.                                                                  |
-| Shell errors mentioning `\r` | Save the script with Unix line endings (LF) before running it in Bash.                                                     |
 
 The script prints `CSV created: <path>` after processing. It does not explicitly propagate every read or write failure, so also check error output and the generated file when using it in automation.
 
 ## Example exports
 
-The CSV exports generated with the following commands are available in the [examples directory](examples/). Each output was saved under a descriptive filename for reference.
+The CSV exports generated with the following commands are available in the [examples directory](examples/).
 
 1. Export services whose descriptions contain `ROOT PARTITION` for host names containing `localhost`:
 
