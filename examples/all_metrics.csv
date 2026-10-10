@@ -1,0 +1,12 @@
+Object type;Host name;Service description;Check command;Command args;Warning;Critical;Expanded command
+"host";"NewHost";"";"check-host-alive";"";"3000.0,80%";"5000.0,100%";"$USER1$/check_ping -H $HOSTADDRESS$ -w 3000.0,80% -c 5000.0,100% -p 5"
+"host";"localhost";"";"check-host-alive";"";"3000.0,80%";"5000.0,100%";"$USER1$/check_ping -H $HOSTADDRESS$ -w 3000.0,80% -c 5000.0,100% -p 5"
+"service";"NewHost";"Current Load";"check_local_load";"ARG1=5.0,4.0,3.0 | ARG2=10.0,6.0,4.0";"5.0,4.0,3.0";"10.0,6.0,4.0";"$USER1$/check_load -w 5.0,4.0,3.0 -c 10.0,6.0,4.0"
+"service";"localhost";"Current Load";"check_local_load";"ARG1=5.0,4.0,3.0 | ARG2=10.0,6.0,4.0";"5.0,4.0,3.0";"10.0,6.0,4.0";"$USER1$/check_load -w 5.0,4.0,3.0 -c 10.0,6.0,4.0"
+"service";"localhost";"Current Users";"check_local_users";"ARG1=20 | ARG2=50";"20";"50";"$USER1$/check_users -w 20 -c 50"
+"service";"localhost";"HTTP";"check_http";"";"";"";"$USER1$/check_http -I $HOSTADDRESS$ $ARG1$"
+"service";"localhost";"PING";"check_ping";"ARG1=100.0,20% | ARG2=500.0,60%";"100.0,20%";"500.0,60%";"$USER1$/check_ping -H $HOSTADDRESS$ -w 100.0,20% -c 500.0,60% -p 5"
+"service";"localhost";"Root Partition";"check_local_disk";"ARG1=20% | ARG2=10% | ARG3=/";"20%";"10%";"$USER1$/check_disk -w 20% -c 10% -p /"
+"service";"localhost";"SSH";"check_ssh";"";"";"";"$USER1$/check_ssh $ARG1$ $HOSTADDRESS$"
+"service";"localhost";"Swap Usage";"check_local_swap";"ARG1=20% | ARG2=10%";"20%";"10%";"$USER1$/check_swap -w 20% -c 10%"
+"service";"localhost";"Total Processes";"check_local_procs";"ARG1=250 | ARG2=400 | ARG3=RSZDT";"250";"400";"$USER1$/check_procs -w 250 -c 400 -s RSZDT"

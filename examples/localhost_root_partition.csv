@@ -1,0 +1,2 @@
+Object type;Host name;Service description;Check command;Command args;Warning;Critical;Expanded command
+"service";"localhost";"Root Partition";"check_local_disk";"ARG1=20% | ARG2=10% | ARG3=/";"20%";"10%";"$USER1$/check_disk -w 20% -c 10% -p /"

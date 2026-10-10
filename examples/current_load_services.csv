@@ -1,0 +1,3 @@
+Object type;Host name;Service description;Check command;Command args;Warning;Critical;Expanded command
+"service";"NewHost";"Current Load";"check_local_load";"ARG1=5.0,4.0,3.0 | ARG2=10.0,6.0,4.0";"5.0,4.0,3.0";"10.0,6.0,4.0";"$USER1$/check_load -w 5.0,4.0,3.0 -c 10.0,6.0,4.0"
+"service";"localhost";"Current Load";"check_local_load";"ARG1=5.0,4.0,3.0 | ARG2=10.0,6.0,4.0";"5.0,4.0,3.0";"10.0,6.0,4.0";"$USER1$/check_load -w 5.0,4.0,3.0 -c 10.0,6.0,4.0"
