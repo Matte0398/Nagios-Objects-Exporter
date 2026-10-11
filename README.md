@@ -4,6 +4,31 @@ Export Nagios service and host check definitions from `objects.cache` to a semic
 
 The script collects check command names and arguments, substitutes `$ARGn$` macros into the corresponding command definitions, and extracts warning and critical thresholds where supported. It reads the cache without executing any monitoring checks or modifying the Nagios configuration.
 
+## Contents
+
+- [Repository structure](#repository-structure)
+- [Requirements](#requirements)
+- [Quick start](#quick-start)
+- [Usage](#usage)
+- [CSV output](#csv-output)
+- [Threshold extraction and limitations](#threshold-extraction-and-limitations)
+- [Troubleshooting](#troubleshooting)
+- [Example exports](#example-exports)
+- [License](#license)
+
+## Repository structure
+
+```text
+Nagios-Objects-Exporter/
+|-- examples/
+|   |-- all_metrics.csv
+|   |-- current_load_services.csv
+|   `-- localhost_root_partition.csv
+|-- LICENSE
+|-- ngs_objects_exporter.sh
+`-- README.md
+```
+
 ## Requirements
 
 - A shell environment with Bash, `awk`, and `tee` available.
