@@ -1,186 +1,344 @@
 # Nagios Objects Exporter
 
-Export Nagios service and host check definitions from `objects.cache` to a semicolon-separated CSV file using [`ngs_objects_exporter.sh`](ngs_objects_exporter.sh).
+Export the Nagios monitoring inventory from a generated `objects.cache` file. This utility writes one row per host check and per
+service, with the plugin used, the monitoring method, a short description of what is checked and the configured thresholds, as CSV or JSON.
 
-The script collects check command names and arguments, substitutes `$ARGn$` macros into the corresponding command definitions, and extracts warning and critical thresholds where supported. It reads the cache without executing any monitoring checks or modifying the Nagios configuration.
+Descriptions and methods come from a JSON **plugin catalog**
+([plugin_profiles.json](plugin_profiles.json)). The exporter only reads `objects.cache` and the catalog: it never runs a plugin.
 
 ## Contents
 
+- [Features](#features)
 - [Repository structure](#repository-structure)
 - [Requirements](#requirements)
-- [Quick start](#quick-start)
 - [Usage](#usage)
-- [CSV output](#csv-output)
-- [Threshold extraction and limitations](#threshold-extraction-and-limitations)
-- [Troubleshooting](#troubleshooting)
-- [Example exports](#example-exports)
+- [Export fields](#export-fields)
+- [Plugin catalog](#plugin-catalog)
+- [How each value is determined](#how-each-value-is-determined)
+- [Remote checks: NRPE and SSH](#remote-checks-nrpe-and-ssh)
+- [Missing catalog entries](#missing-catalog-entries)
+- [Credentials and privacy](#credentials-and-privacy)
 - [License](#license)
+
+## Features
+
+- Export host and service checks to CSV or JSON without executing plugins.
+- Describe monitoring methods and thresholds through a configurable plugin catalog.
+- Analyze local checks and remote checks over NRPE or SSH.
+- Include group memberships, custom metadata, and check configuration.
+- Filter by host or service and report missing catalog entries.
+- Redact sensitive custom macros during command analysis.
 
 ## Repository structure
 
 ```text
 Nagios-Objects-Exporter/
 |-- examples/
-|   |-- all_metrics.csv
-|   |-- current_load_services.csv
-|   `-- localhost_root_partition.csv
+|   |-- inventory.csv
+|   |-- inventory.json
+|   `-- host1_services.csv
 |-- LICENSE
-|-- ngs_objects_exporter.sh
+|-- ngs_objects_exporter.py
+|-- plugin_profiles.json
 `-- README.md
 ```
 
 ## Requirements
 
-- A shell environment with Bash, `awk`, and `tee` available.
-- Read access to a Nagios `objects.cache` file containing the object and command definitions to export.
-- Write access to the output directory, which must already exist.
-
-No additional libraries or build steps are required.
-
-## Quick start
-
-From the project directory, export all service checks using the default cache path:
-
-```bash
-bash ngs_objects_exporter.sh
-```
-
-By default, the script reads `/usr/local/nagios/var/objects.cache` and writes `nagios_objects.csv` in the current working directory.
-
-To specify the input and output paths:
-
-```bash
-bash ngs_objects_exporter.sh \
-  -o /path/to/objects.cache \
-  -O /path/to/nagios_objects.csv
-```
-
-**The output file is overwritten on each run.** Choose an output path different from the input cache file.
+- Python 3.6 or later, standard library only.
+- Read access to `objects.cache` and to the plugin catalog.
+- For `-O`, an existing output directory where a temporary file can be created.
 
 ## Usage
 
 ```text
-bash ngs_objects_exporter.sh [service_filter]
-bash ngs_objects_exporter.sh [-a] [-H <host_filter>] [-s <service_filter>] [-o <objects_cache>] [-O <output_csv>]
+ngs_objects_exporter.py [-o FILE] [--profiles FILE] [-H NAME] [-s NAME] [-J] [-O FILE]
+ngs_objects_exporter.py --missing [-o FILE] [--profiles FILE] [-H NAME] [-s NAME] [-J] [-O FILE]
+ngs_objects_exporter.py -h
 ```
 
-| Option                | Description                                                 | Default                               |
-| --------------------- | ----------------------------------------------------------- | ------------------------------------- |
-| `-a`                  | Include host checks as well as service checks.              | Service checks only                   |
-| `-H <host_filter>`    | Filter by text contained in the host name.                  | All hosts                             |
-| `-s <service_filter>` | Filter by text contained in the service description.        | All services                          |
-| `-o <objects_cache>`  | Path to the input cache file.                               | `/usr/local/nagios/var/objects.cache` |
-| `-O <output_csv>`     | Path to the output CSV file.                                | `nagios_objects.csv`                  |
-| `service_filter`      | Positional alternative to `-s`, retained for compatibility. | No filter                             |
+| Option                 | Behavior                                                                                                                                                         |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-o`, `--cache FILE`   | `objects.cache` to read. Default `/usr/local/nagios/var/objects.cache`.                                                                                          |
+| `--profiles FILE`      | Plugin catalog. Default `plugin_profiles.json` in the directory of the script (symbolic links are resolved). The export stops if the file is missing or invalid. |
+| `-H`, `--host NAME`    | Only this host. The whole name must match, case-insensitively; `*` and `?` are wildcards (`'srv*'`).                                                             |
+| `-s`, `--service NAME` | Only this service, with the same matching rules (`'Disk*'`). Host checks are skipped. Can be combined with `-H`: both must match.                                |
+| `-J`, `--json`         | JSON instead of CSV.                                                                                                                                             |
+| `-O`, `--output FILE`  | Write to FILE instead of stdout.                                                                                                                                 |
+| `--missing`            | Instead of the inventory, list the plugins and remote commands that are not in the catalog.                                                                      |
+| `-h`, `--help`         | Show the help with a complete example. Running without arguments does the same.                                                                                  |
 
-Filters are case-insensitive substring matches, not regular expressions. Host and service filters can be combined. Quote filters and paths containing spaces, and place options before any positional filter.
-
-Do not combine a positional service filter with `-s`. A nonempty service filter excludes host-check rows even when `-a` is present.
-
-The script does not define a dedicated help option. Invalid options or missing option arguments display usage information and exit with status `1`.
-
-### Examples
+Examples:
 
 ```bash
-# Export services whose descriptions contain "disk"
-bash ngs_objects_exporter.sh disk
-
-# Export services whose descriptions contain "CPU"
-bash ngs_objects_exporter.sh -s CPU
-
-# Export services for host names containing "server01"
-bash ngs_objects_exporter.sh -H server01
-
-# Combine host and service filters
-bash ngs_objects_exporter.sh -H web -s http
-
-# Include all host checks and service checks
-bash ngs_objects_exporter.sh -a
-
-# Include host and service checks for host names containing "db"
-bash ngs_objects_exporter.sh -a -H db -O database_checks.csv
-
-# Read a local cache copy and filter a description containing spaces
-bash ngs_objects_exporter.sh -o ./objects.cache -s "Disk Space" -O disk_checks.csv
+./ngs_objects_exporter.py -O inventory.csv
+./ngs_objects_exporter.py -H HOST1 -s 'Disk*'
+./ngs_objects_exporter.py -o examples/objects_sample.cache -J -O inventory.json
+./ngs_objects_exporter.py --missing
 ```
 
-## CSV output
+Host checks are always exported, one row per host, unless `-s` is used. Rows are
+sorted by host name, with the host check before its services.
 
-The first row contains the following column names:
+### Output formats
+
+- **CSV**: semicolon-separated, with a header. Lists (groups) are joined with `, `,
+  booleans become `Yes`/`No`, missing values are empty. With `-O` the file is written
+  as UTF-8 with a BOM so that Excel reads accented characters correctly.
+- **JSON**: an indented array of objects with the same keys as the CSV. Numbers stay
+  numbers, booleans stay `true`/`false`, groups stay lists and missing values are `null`.
+
+With `-O` the file is written to a temporary file first and then replaces the
+destination. Existing permissions are kept; a new file gets `0600`.
+
+A summary such as `Inventory: 120 host checks, 1450 service checks, 3 unknown catalog
+entries` is written to stderr, so it never mixes with the CSV or JSON on stdout.
+
+### Exit codes
+
+| Code | Meaning                                                                              |
+| ---- | ------------------------------------------------------------------------------------ |
+| `0`  | Done                                                                                 |
+| `1`  | Error reading the cache or the catalog, invalid catalog, or error writing the output |
+| `2`  | Invalid command-line options                                                         |
+| `3`  | `--missing` found plugins or remote commands to add to the catalog                   |
+
+## Export fields
+
+| Field                                                         | Content                                                                                  |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `HOST_NAME`                                                   | Host name.                                                                               |
+| `HOST_ADDRESS`                                                | Host `address`, as configured (IP or host name).                                         |
+| `CUSTOMER`                                                    | Host custom variable `_customer`.                                                        |
+| `SYSTEM_TYPE`                                                 | Host custom variable `_type`.                                                            |
+| `SYSTEM_VENDOR`                                               | Host custom variable `_vendor`.                                                          |
+| `SERVICE_NAME`                                                | Service description; empty for host checks.                                              |
+| `OBJECT_TYPE`                                                 | `HOST` or `SERVICE`.                                                                     |
+| `CHECK_COMMAND`                                               | Nagios command name, e.g. `check_local_disk`.                                            |
+| `PLUGIN`                                                      | Plugin file actually run by the command, e.g. `check_disk`.                              |
+| `REMOTE_COMMAND`                                              | For `check_nrpe` the remote command (`-c`); for `check_by_ssh` the remote plugin (`-C`). |
+| `MONITORING_METHOD`                                           | E.g. `SNMP`, `API`, `Local`, `Local via NRPE`, or `N/A`.                                 |
+| `DESCRIPTION`                                                 | What the check does, or `N/A`.                                                           |
+| `WARNING`, `CRITICAL`                                         | Thresholds; see [Thresholds](#thresholds).                                               |
+| `THRESHOLD_STATUS`                                            | How the thresholds were determined; see [Threshold status](#threshold-status).           |
+| `HOST_GROUPS`, `SERVICE_GROUPS`                               | Group memberships, nested groups included.                                               |
+| `CHECK_INTERVAL`, `RETRY_INTERVAL`                            | As configured, in Nagios interval units (not necessarily seconds).                       |
+| `MAX_CHECK_ATTEMPTS`, `CHECK_PERIOD`, `NOTIFICATION_INTERVAL` | As configured.                                                                           |
+| `NOTIFICATIONS_ENABLED`, `ACTIVE_CHECKS_ENABLED`              | As configured; changes made from the web interface are not reflected.                    |
+| `NOTES`                                                       | What could not be determined and why.                                                    |
+
+Custom variable names are case-insensitive: `_customer` and `_CUSTOMER` are the same.
+
+## Plugin catalog
+
+The catalog describes each plugin once. A plugin used by Nagios but missing from the
+catalog is exported with `N/A` as description and method.
+
+```json
+{
+  "local_plugins": {
+    "check_disk": {
+      "method": "Local",
+      "description": "Free space on mounted file systems",
+      "sensitive_options": []
+    },
+    "check_qnap3.sh": {
+      "method": "SNMP",
+      "description": "QNAP NAS health",
+      "sensitive_options": ["-A", "-C", "-u", "-X"],
+      "modes": { "cpu": "System CPU", "usedvolume": "Volume utilization" }
+    },
+    "check_powerstore_api.py": {
+      "method": "API",
+      "description": "Dell PowerStore health",
+      "sensitive_options": ["-p", "-u", "--password", "--password-id"],
+      "modes": {
+        "psu": "Show status of powersupply",
+        "capacity": "Check total capacity"
+      },
+      "thresholds_by_mode": {
+        "capacity": { "warning": "-f:1", "critical": "-f:2" }
+      }
+    }
+  },
+  "check_nrpe": {
+    "check_disk*": {
+      "method": "Local",
+      "description": "Filesystem free space",
+      "sensitive_options": [],
+      "warning": "-a:1",
+      "critical": "-a:2"
+    }
+  }
+}
+```
+
+### Sections
+
+| Section         | Key of each entry                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| `local_plugins` | File name of the plugin run by the Nagios server, e.g. `check_disk` from `$USER1$/check_disk ...`. |
+| `check_nrpe`    | Remote command name, i.e. the value of `check_nrpe -c` as defined in `nrpe.cfg`.                   |
+| `check_by_ssh`  | File name of the plugin inside `check_by_ssh -C "..."`.                                            |
+
+Names may contain `*` and `?`. An exact name wins over patterns; between two patterns
+the one with more literal characters wins (`check_qnap*.sh` before `check_*`). When the
+command starts with `env`, `python…`, `perl`, `bash` or `sh`, the plugin is the file
+that follows.
+
+### Fields
+
+| Field                                 | Required | Content                                                                             |
+| ------------------------------------- | -------- | ----------------------------------------------------------------------------------- |
+| `method`                              | yes      | Monitoring method, free text: `SNMP`, `API`, `Local`, `SSH`…                        |
+| `description`                         | yes      | What the plugin or command checks.                                                  |
+| `sensitive_options`                   | no       | Options carrying credentials; they are never read as thresholds.                    |
+| `modes`                               | no       | Description for each value of the plugin's check selector.                          |
+| `warning`, `critical`                 | no       | Where the threshold is in the command; `""` means the plugin has no such threshold. |
+| `default_warning`, `default_critical` | no       | Value used by the plugin when the command sets no threshold.                        |
+| `warning_option`, `critical_option`   | no       | One more option to search for thresholds.                                           |
+| `thresholds_by_mode`                  | no       | `warning`/`critical`/`default_*` rules valid only for one mode.                     |
+| `thresholds_supported`                | no       | `false` for plugins that never use thresholds.                                      |
+
+**`sensitive_options`** — e.g. `["-C", "-p", "--password"]`. Since the command line is
+not exported, this field only prevents a credential (`-c S3cr3t1`) from being taken as
+a threshold. A `:N` suffix (`"--cache:2,3"`) is accepted and ignored.
+
+**`modes`** — the exporter looks for a command argument equal to a key of `modes`
+(`-m usedvolume`, `--check=psu`, `-c psu,fan`, `-m hdstatus:2,5`). The first match
+gives the description, and selects the rules of `thresholds_by_mode`.
+
+**`warning`, `critical`** — a rule `"-x"` or `"-x:N"`:
+
+| Rule          | Meaning                                | Command                  | Result |
+| ------------- | -------------------------------------- | ------------------------ | ------ |
+| `"-w"`        | first value after `-w`                 | `-w 80`                  | `80`   |
+| `"-a:1"`      | first argument of `check_nrpe -a`      | `-a 20% 10% /var`        | `20%`  |
+| `"--cache:4"` | fourth value after `--cache`           | `--cache ORCL u p 90 95` | `90`   |
+| `"-f:2"`      | second item of a comma-separated value | `-f 80,90`               | `90`   |
+| `""`          | no such threshold                      | `-w 20`                  | empty  |
+
+A comma-separated value is split only when the rule gives a position: `"-w"` returns
+`5,4,3` whole, `"-l:2"` returns the second item of `5,80,90`. The value found must look
+like a threshold (`80`, `80%`, `10:`, `~:20`, `@5:10`); otherwise the rule counts as
+not found.
+
+**`default_warning`, `default_critical`** — free text such as `"1000"` or `"1000s"`.
+They are used only when neither a rule nor the command gives a threshold and the
+service has no `_WARNING`/`_CRITICAL`.
+
+**`warning_option`, `critical_option`** — e.g. `"critical_option": "--max-age"`. Unlike
+`warning`/`critical`, they add an option to the automatic search without excluding
+the others.
+
+**`thresholds_by_mode`** — e.g.
+`{"CPULOAD": {"warning": "-l:2", "critical": "-l:3"}}`: with `-v CPULOAD -l 5,80,90` the
+thresholds are `80` and `90`; other modes use the general rules.
+
+### Catalog validation
+
+The catalog must be a JSON object containing only the three sections. The export stops
+with exit code 1 and a message naming the entry when the JSON is invalid, a key is
+duplicated, `method` or `description` is missing or empty, or a field has the wrong
+type. A badly written threshold rule (e.g. `"a:1"`) is reported when a check uses it.
+
+## How each value is determined
+
+### Method and description
+
+| Value               | Order of precedence                                                                                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MONITORING_METHOD` | service `_monitoring_method`; host `_monitoring_method`; catalog `method` (plus ` via NRPE`/` via SSH` for remote checks); `NRPE`/`SSH` when the remote command is not in the catalog; `N/A` |
+| `DESCRIPTION`       | service `_check_description`; service `notes`; catalog `modes` entry for the selected mode; catalog `description`; `N/A`                                                                     |
+
+### Thresholds
+
+For each of warning and critical:
+
+1. Service custom variable `_warning` / `_critical`.
+2. Catalog rule for the selected mode (`thresholds_by_mode`).
+3. Catalog rule `warning` / `critical` (`""` means none).
+4. Automatic search in the command: `-w`, `--warning`, `--warn` (warning) or `-c`,
+   `--critical`, `--crit` (critical), long options whose name contains `warn`/`crit`
+   (`--size-warning`), and `warning_option`/`critical_option`. Options listed in
+   `sensitive_options` are skipped. The value must contain a digit, so `-c psu` (a
+   check selector) is not taken as a threshold.
+5. Catalog `default_warning` / `default_critical`.
+
+When the automatic search finds several options, all are listed:
+`--size-warning=80; --inode-warning=70`.
+
+### Threshold status
+
+| Value                    | When                                                                                                                                                                                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `UNDETERMINED`           | The plugin could not be identified; the remote command is not in the catalog; a threshold contains an unresolved macro such as `$USER5$`; a catalog rule found nothing; an NRPE check shows no threshold; or the plugin is not in the catalog and no threshold was found. |
+| `DEFAULT`                | A `default_warning`/`default_critical` value was used.                                                                                                                                                                                                                    |
+| `CONFIGURED`             | At least one threshold was found in the command or in a Nagios variable.                                                                                                                                                                                                  |
+| `NOT_APPLICABLE`         | No threshold and `"thresholds_supported": false`.                                                                                                                                                                                                                         |
+| `NO_EXPLICIT_THRESHOLDS` | The plugin is in the catalog and the command sets no threshold.                                                                                                                                                                                                           |
+
+### Macros
+
+Before analysis, the command line is expanded with `$ARGn$`, `$HOSTNAME$`,
+`$HOSTADDRESS$`, `$HOSTALIAS$`, `$SERVICEDESC$` and the host and service custom
+variables (`$_HOSTxxx$`, `$_SERVICExxx$`). Custom variables whose name suggests a
+credential (password, secret, token, community, key…) are replaced with `[REDACTED]`.
+`$USERn$` macros from `resource.cfg` are not resolved.
+
+## Remote checks: NRPE and SSH
+
+**`check_nrpe`** — the remote command is the value of `-c`/`--command` and is looked up
+in the `check_nrpe` section. Its arguments are everything after `-a`/`--args`. NRPE
+thresholds are often defined only in `nrpe.cfg` on the remote host: in that case the
+export cannot see them, `THRESHOLD_STATUS` is `UNDETERMINED` and `NOTES` says so. When
+`-a` passes positional thresholds (`-a 20% 10%`), describe their position with
+`"warning": "-a:1"` and `"critical": "-a:2"`; when it passes options
+(`-a "-w 80 -c 90"`), they are found automatically.
+
+**`check_by_ssh`** — the command inside `-C`/`--command` is analysed like a local one.
+Its plugin is looked up in the `check_by_ssh` section first, then in `local_plugins`.
+
+In both cases the method becomes `<method> via NRPE` or `<method> via SSH`.
+
+## Missing catalog entries
+
+```bash
+./ngs_objects_exporter.py --missing
+```
+
+On screen, the report lists the missing entries grouped by section, ordered by how many
+checks use them, followed by entries ready to complete and paste into the catalog:
 
 ```text
-Object type;Host name;Service description;Check command;Command args;Warning;Critical;Expanded command
+1 plugins/remote commands are missing from plugin_profiles.json 1 checks affected!
+
+[local_plugins]
+  check_http  1 checks on 1 hosts   command: check_http
+              e.g. localhost / HTTP
+
+Entries to complete and add to the catalog:
+{
+  "local_plugins": {
+    "check_http": {"method": "", "description": "", "sensitive_options": []}
+  }
+}
 ```
 
-| Column                | Contents                                                               |
-| --------------------- | ---------------------------------------------------------------------- |
-| `Object type`         | `service` or `host`.                                                   |
-| `Host name`           | The object's `host_name` value.                                        |
-| `Service description` | The service description; empty for host checks.                        |
-| `Check command`       | The command name, without the `!`-separated arguments.                 |
-| `Command args`        | Arguments formatted as `ARG1=value \| ARG2=value`.                     |
-| `Warning`             | The detected warning threshold, or an empty value.                     |
-| `Critical`            | The detected critical threshold, or an empty value.                    |
-| `Expanded command`    | The matching `command_line` with supplied `$ARGn$` values substituted. |
+When nothing is missing:
 
-All data fields are enclosed in double quotes, and embedded double quotes are doubled. When importing into a spreadsheet, select `;` as the delimiter.
-
-For example, given a service using `check_disk!20%!10%` and a command definition of `$USER1$/check_disk -w $ARG1$ -c $ARG2$`, its output row could be:
-
-```csv
-"service";"server01";"Disk Space";"check_disk";"ARG1=20% | ARG2=10%";"20%";"10%";"$USER1$/check_disk -w 20% -c 10%"
+```text
+OK: all plugins and remote commands used by 1570 checks are in plugin_profiles.json
 ```
 
-## Threshold extraction and limitations
+## Credentials and privacy
 
-- Warning options recognized: `-w`, `--warning`, `--warn`, `-warning`, and `-warn`.
-- Critical options recognized: `-c`, `--critical`, `--crit`, `-critical`, and `-crit`.
-- Options support a separate value or an equals sign, such as `-w 80` and `--warning=80`. Attached values such as `-w80` are not recognized.
-- Only supplied `$ARGn$` macros are substituted. Other macros, including `$USER1$`, `$HOSTADDRESS$`, and custom macros, remain unresolved; `resource.cfg` is not read.
-- If a command definition is missing, the row still contains the command name and arguments, while the expanded command and thresholds remain empty.
-- Objects without a host name or a check command are skipped. The script expects the multiline `define host`, `define service`, and `define command` blocks used in `objects.cache`.
-- The export describes the supplied configuration snapshot. It does not include live status, check results, or performance data.
-
-## Troubleshooting
-
-| Symptom                      | What to check                                                                                                              |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `objects.cache` not found    | Supply the correct file path with `-o`.                                                                                    |
-| CSV contains only the header | Check the filters and confirm that the cache contains matching objects with a host name and check command.                 |
-| Empty threshold columns      | Check that the matching command definition exists and uses one of the supported threshold options with extractable values. |
-| CSV cannot be written        | Confirm that the output directory exists and is writable.                                                                  |
-
-The script prints `CSV created: <path>` after processing. It does not explicitly propagate every read or write failure, so also check error output and the generated file when using it in automation.
-
-## Example exports
-
-The CSV exports generated with the following commands are available in the [examples directory](examples/).
-
-1. Export services whose descriptions contain `ROOT PARTITION` for host names containing `localhost`:
-
-   ```bash
-   ./ngs_objects_exporter.sh -H localhost -s "ROOT PARTITION"
-   ```
-
-   View [localhost_root_partition.csv](examples/localhost_root_partition.csv).
-
-2. Export all host and service checks:
-
-   ```bash
-   ./ngs_objects_exporter.sh -a
-   ```
-
-   View [all_metrics.csv](examples/all_metrics.csv).
-
-3. Export services whose descriptions contain `current load`:
-
-   ```bash
-   ./ngs_objects_exporter.sh -s "current load"
-   ```
-
-   View [current_load_services.csv](examples/current_load_services.csv).
-
-Filters are case-insensitive. These commands use the default input cache path and overwrite `nagios_objects.csv` in the current directory; use `-O <output_csv>` to choose a different output filename.
+- The export does not contain command lines, so credentials passed as arguments do
+  not appear in it.
+- Thresholds are never read from options listed in `sensitive_options`, and custom
+  variables with a sensitive name are redacted before analysis.
+- Host names, addresses, customers, service names, groups and Nagios `notes` are
+  exported as configured. Review them before sharing an export outside your team.
 
 ## License
 

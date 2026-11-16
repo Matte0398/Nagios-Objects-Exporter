@@ -1,0 +1,5 @@
+﻿HOST_NAME;HOST_ADDRESS;CUSTOMER;SYSTEM_TYPE;SYSTEM_VENDOR;SERVICE_NAME;OBJECT_TYPE;CHECK_COMMAND;PLUGIN;REMOTE_COMMAND;MONITORING_METHOD;DESCRIPTION;WARNING;CRITICAL;THRESHOLD_STATUS;HOST_GROUPS;SERVICE_GROUPS;CHECK_INTERVAL;RETRY_INTERVAL;MAX_CHECK_ATTEMPTS;CHECK_PERIOD;NOTIFICATION_INTERVAL;NOTIFICATIONS_ENABLED;ACTIVE_CHECKS_ENABLED;NOTES
+HOST1;HOST1;;;;;HOST;check_host_alive;check_ping;;ICMP;Packet loss and round-trip time;100.0,20%;500.0,60%;CONFIGURED;example_hosts;;5;1;3;;;Yes;Yes;
+HOST1;HOST1;;;;Root filesystem;SERVICE;check_local_disk;check_disk;;Local;Free space on mounted file systems;20%;10%;CONFIGURED;example_hosts;example_storage;5;1;3;;;;;
+HOST2;HOST2;;;;;HOST;check_host_alive;check_ping;;ICMP;Packet loss and round-trip time;100.0,20%;500.0,60%;CONFIGURED;example_hosts;;;;;;;;;
+HOST2;HOST2;;;;Remote filesystem;SERVICE;check_remote_disk;check_nrpe;check_disk;Local via NRPE;Filesystem free space;20%;10%;CONFIGURED;example_hosts;example_storage;;;;;;;;

@@ -1,0 +1,122 @@
+[
+  {
+    "HOST_NAME": "HOST1",
+    "HOST_ADDRESS": "HOST1",
+    "CUSTOMER": "",
+    "SYSTEM_TYPE": "",
+    "SYSTEM_VENDOR": "",
+    "SERVICE_NAME": "",
+    "OBJECT_TYPE": "HOST",
+    "CHECK_COMMAND": "check_host_alive",
+    "PLUGIN": "check_ping",
+    "REMOTE_COMMAND": "",
+    "MONITORING_METHOD": "ICMP",
+    "DESCRIPTION": "Packet loss and round-trip time",
+    "WARNING": "100.0,20%",
+    "CRITICAL": "500.0,60%",
+    "THRESHOLD_STATUS": "CONFIGURED",
+    "HOST_GROUPS": [
+      "example_hosts"
+    ],
+    "SERVICE_GROUPS": [],
+    "CHECK_INTERVAL": 5,
+    "RETRY_INTERVAL": 1,
+    "MAX_CHECK_ATTEMPTS": 3,
+    "CHECK_PERIOD": "",
+    "NOTIFICATION_INTERVAL": null,
+    "NOTIFICATIONS_ENABLED": true,
+    "ACTIVE_CHECKS_ENABLED": true,
+    "NOTES": ""
+  },
+  {
+    "HOST_NAME": "HOST1",
+    "HOST_ADDRESS": "HOST1",
+    "CUSTOMER": "",
+    "SYSTEM_TYPE": "",
+    "SYSTEM_VENDOR": "",
+    "SERVICE_NAME": "Root filesystem",
+    "OBJECT_TYPE": "SERVICE",
+    "CHECK_COMMAND": "check_local_disk",
+    "PLUGIN": "check_disk",
+    "REMOTE_COMMAND": "",
+    "MONITORING_METHOD": "Local",
+    "DESCRIPTION": "Free space on mounted file systems",
+    "WARNING": "20%",
+    "CRITICAL": "10%",
+    "THRESHOLD_STATUS": "CONFIGURED",
+    "HOST_GROUPS": [
+      "example_hosts"
+    ],
+    "SERVICE_GROUPS": [
+      "example_storage"
+    ],
+    "CHECK_INTERVAL": 5,
+    "RETRY_INTERVAL": 1,
+    "MAX_CHECK_ATTEMPTS": 3,
+    "CHECK_PERIOD": "",
+    "NOTIFICATION_INTERVAL": null,
+    "NOTIFICATIONS_ENABLED": null,
+    "ACTIVE_CHECKS_ENABLED": null,
+    "NOTES": ""
+  },
+  {
+    "HOST_NAME": "HOST2",
+    "HOST_ADDRESS": "HOST2",
+    "CUSTOMER": "",
+    "SYSTEM_TYPE": "",
+    "SYSTEM_VENDOR": "",
+    "SERVICE_NAME": "",
+    "OBJECT_TYPE": "HOST",
+    "CHECK_COMMAND": "check_host_alive",
+    "PLUGIN": "check_ping",
+    "REMOTE_COMMAND": "",
+    "MONITORING_METHOD": "ICMP",
+    "DESCRIPTION": "Packet loss and round-trip time",
+    "WARNING": "100.0,20%",
+    "CRITICAL": "500.0,60%",
+    "THRESHOLD_STATUS": "CONFIGURED",
+    "HOST_GROUPS": [
+      "example_hosts"
+    ],
+    "SERVICE_GROUPS": [],
+    "CHECK_INTERVAL": null,
+    "RETRY_INTERVAL": null,
+    "MAX_CHECK_ATTEMPTS": null,
+    "CHECK_PERIOD": "",
+    "NOTIFICATION_INTERVAL": null,
+    "NOTIFICATIONS_ENABLED": null,
+    "ACTIVE_CHECKS_ENABLED": null,
+    "NOTES": ""
+  },
+  {
+    "HOST_NAME": "HOST2",
+    "HOST_ADDRESS": "HOST2",
+    "CUSTOMER": "",
+    "SYSTEM_TYPE": "",
+    "SYSTEM_VENDOR": "",
+    "SERVICE_NAME": "Remote filesystem",
+    "OBJECT_TYPE": "SERVICE",
+    "CHECK_COMMAND": "check_remote_disk",
+    "PLUGIN": "check_nrpe",
+    "REMOTE_COMMAND": "check_disk",
+    "MONITORING_METHOD": "Local via NRPE",
+    "DESCRIPTION": "Filesystem free space",
+    "WARNING": "20%",
+    "CRITICAL": "10%",
+    "THRESHOLD_STATUS": "CONFIGURED",
+    "HOST_GROUPS": [
+      "example_hosts"
+    ],
+    "SERVICE_GROUPS": [
+      "example_storage"
+    ],
+    "CHECK_INTERVAL": null,
+    "RETRY_INTERVAL": null,
+    "MAX_CHECK_ATTEMPTS": null,
+    "CHECK_PERIOD": "",
+    "NOTIFICATION_INTERVAL": null,
+    "NOTIFICATIONS_ENABLED": null,
+    "ACTIVE_CHECKS_ENABLED": null,
+    "NOTES": ""
+  }
+]

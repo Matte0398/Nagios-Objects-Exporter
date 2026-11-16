@@ -1,0 +1,71 @@
+{
+  "local_plugins": {
+    "check_dhcp": {
+      "method": "DHCP",
+      "description": "Check DHCP server availability",
+      "sensitive_options": [],
+      "thresholds_supported": false
+    },
+    "check_dig": {
+      "method": "DNS",
+      "description": "Check DNS resolution using dig command",
+      "sensitive_options": []
+    },
+    "check_disk": {
+      "method": "Local",
+      "description": "Check free space on mounted file systems",
+      "sensitive_options": []
+    },
+    "check_disk_smb": {
+      "method": "SMB",
+      "description": "Check free space on an SMB/CIFS share",
+      "sensitive_options": ["-p", "-u", "--password", "--user"]
+    },
+    "check_dns": {
+      "method": "DNS",
+      "description": "Check DNS resolution of a host name",
+      "sensitive_options": []
+    },
+    "check_dummy": {
+      "method": "Local",
+      "description": "Check fixed state, nothing is monitored",
+      "sensitive_options": [],
+      "thresholds_supported": false
+    },
+    "check_load": {
+      "method": "Local",
+      "description": "Check system load average",
+      "sensitive_options": []
+    },
+    "check_swap": {
+      "method": "Local",
+      "description": "Check free swap space",
+      "sensitive_options": []
+    },
+    "check_tcp": {
+      "method": "TCP",
+      "description": "Check TCP connection",
+      "sensitive_options": []
+    },
+    "check_time": {
+      "method": "TCP",
+      "description": "Check time difference with the remote host",
+      "sensitive_options": []
+    },
+    "check_udp": {
+      "method": "UDP",
+      "description": "Check UDP response",
+      "sensitive_options": []
+    }
+  },
+  "check_nrpe": {
+    "check_disk*": {
+      "method": "Local",
+      "description": "Check filesystem free space",
+      "sensitive_options": [],
+      "warning": "-a:1",
+      "critical": "-a:2"
+    }
+  },
+  "check_by_ssh": {}
+}
