@@ -4,7 +4,7 @@ Export the Nagios monitoring inventory from a generated `objects.cache` file. Th
 service, with the plugin used, the monitoring method, a short description of what is checked and the configured thresholds, as CSV or JSON.
 
 Descriptions and methods come from a JSON **plugin catalog**
-([plugin_profiles.json](plugin_profiles.json)). The exporter only reads `objects.cache` and the catalog: it never runs a plugin.
+([plugin_profiles.json](examples/plugin_profiles_example.json)). The exporter only reads `objects.cache` and the catalog: it never runs a plugin.
 
 ## Contents
 
@@ -34,12 +34,12 @@ Descriptions and methods come from a JSON **plugin catalog**
 ```text
 Nagios-Objects-Exporter/
 |-- examples/
+|   |-- host1_services.csv
 |   |-- inventory.csv
 |   |-- inventory.json
-|   `-- host1_services.csv
+|   `-- plugin_profiles_example.json
 |-- LICENSE
 |-- ngs_objects_exporter.py
-|-- plugin_profiles.json
 `-- README.md
 ```
 
@@ -73,7 +73,7 @@ Examples:
 ```bash
 ./ngs_objects_exporter.py -O inventory.csv
 ./ngs_objects_exporter.py -H HOST1 -s 'Disk*'
-./ngs_objects_exporter.py -o examples/objects_sample.cache -J -O inventory.json
+./ngs_objects_exporter.py -o objects_sample.cache -J -O inventory.json
 ./ngs_objects_exporter.py --missing
 ```
 
