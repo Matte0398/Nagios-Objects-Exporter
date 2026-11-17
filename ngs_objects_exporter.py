@@ -398,27 +398,50 @@ def declared_threshold(profile: Optional[dict], level: str, tokens: List[str], r
     return None
 
 
-def selected_mode(profile: Optional[dict], tokens: List[str]) -> str:
+def selected_modes(profile: Optional[dict], tokens: List[str]) -> List[Tuple[str, str]]:
+    """Collect modes in command order, retaining comma-separated selectors."""
     if not profile:
-        return ""
+        return []
 
     modes = profile.get("modes", {})
+    selections = []
 
     for token in tokens[1:]:
         value = token.split("=", 1)[-1] if token.startswith("-") and "=" in token else token
+        current_mode = ""
+        selectors = []
 
-        for item in re.split(r"[,:]", value):
-            if item in modes:
-                return item
+        for item in value.split(",") + [""]:
+            mode_name, separator, selector = item.partition(":")
 
-    return ""
+            if current_mode and (mode_name in modes or not item):
+                selection = (current_mode, ",".join(selectors))
+
+                if selection not in selections:
+                    selections.append(selection)
+
+                current_mode = ""
+                selectors = []
+
+            if mode_name in modes:
+                current_mode = mode_name
+                selectors = [selector] if separator else []
+            elif current_mode and selectors:
+                selectors.append(item)
+
+    return selections
 
 
 def describe(profile: Optional[dict], tokens: List[str]) -> str:
     if not profile:
         return "N/A"
 
-    return profile.get("modes", {}).get(selected_mode(profile, tokens), profile["description"])
+    descriptions = [
+        profile["modes"][mode] + (f" ({selectors})" if selectors else "")
+        for mode, selectors in selected_modes(profile, tokens)
+    ]
+
+    return "\n".join(descriptions) if descriptions else profile["description"]
 
 
 def check_details(check: dict, host: dict, commands: dict, catalog: dict) -> Tuple[dict, List[Tuple[str, str]]]:
@@ -496,31 +519,57 @@ def check_details(check: dict, host: dict, commands: dict, catalog: dict) -> Tup
 
     used_defaults = []
 
-    if target_profile:
-        mode = selected_mode(target_profile, target_tokens)
-        special_rules = target_profile.get("thresholds_by_mode", {}).get(mode, {})
+    selections = selected_modes(target_profile, target_tokens)
+    mode_names = list(dict.fromkeys(mode for mode, selectors in selections)) or [""]
+    has_multiple_modes = len(mode_names) > 1
+    resolved_thresholds = {"warning": [], "critical": []}
+    has_missing_thresholds = False
 
-        for level, values in (("warning", warning), ("critical", critical)):
-            if special_rules.get(level, target_profile.get(level)) == "":
-                values[:] = []          # the plugin has no such threshold
+    for mode in mode_names:
+        special_rules = (target_profile or {}).get("thresholds_by_mode", {}).get(mode, {})
+
+        for level, candidates_found in (("warning", warning), ("critical", critical)):
+            if check.get(f"_{level.upper()}"):
+                continue
+
+            values = list(candidates_found)
+            profile_rules = target_profile or {}
+            rule = special_rules.get(level, profile_rules.get(level))
+
+            if rule == "":
                 continue
 
             declared = declared_threshold(target_profile, level, candidates, remote_arguments, mode)
-            default = special_rules.get(f"default_{level}", target_profile.get(f"default_{level}", ""))
+            default = special_rules.get(f"default_{level}", profile_rules.get(f"default_{level}", ""))
+
+            if rule is not None and declared is None:
+                has_missing_thresholds = True
+                notes.append(f"{level.title()} threshold declared but not found" + (f" for mode {mode}" if mode else ""))
+                values = []
 
             if declared is not None:
-                values[:] = [declared]
-            elif not values and default and not check.get(f"_{level.upper()}"):
-                values[:] = [default]
+                values = [declared]
+            elif not values and default:
+                values = [default]
                 used_defaults.append(level)
-            elif (level in target_profile or level in special_rules) and not values:
-                notes.append(f"{level.title()} threshold declared but not found")
+
+            if not values:
+                continue
+
+            threshold_text = "; ".join(values)
+            has_mode_rule = level in special_rules or f"default_{level}" in special_rules
+
+            if has_multiple_modes and has_mode_rule:
+                threshold_text = f"{mode}: {threshold_text}"
+
+            if threshold_text not in resolved_thresholds[level]:
+                resolved_thresholds[level].append(threshold_text)
 
     if used_defaults:
-        notes.append("Plugin default used for " + " and ".join(used_defaults))
+        notes.append("Plugin default used for " + " and ".join(dict.fromkeys(used_defaults)))
 
-    warning_value = check.get("_WARNING") or "; ".join(warning) or None
-    critical_value = check.get("_CRITICAL") or "; ".join(critical) or None
+    warning_value = check.get("_WARNING") or "\n".join(resolved_thresholds["warning"]) or None
+    critical_value = check.get("_CRITICAL") or "\n".join(resolved_thresholds["critical"]) or None
     threshold_options = ("-w", "-c", "--warning", "--critical", "--warn", "--crit")
     unresolved = any("$" in str(value) for value in (warning_value, critical_value))
     unresolved |= any("$" in value for option in threshold_options for value in option_values(candidates, option)[:1])
@@ -528,7 +577,7 @@ def check_details(check: dict, host: dict, commands: dict, catalog: dict) -> Tup
     if unresolved:
         notes.append("Threshold contains an unresolved Nagios macro")
 
-    if (unresolved or not name or (wrapper and not target_profile) or any("threshold declared but not found" in note for note in notes)):
+    if (unresolved or not name or (wrapper and not target_profile) or has_missing_thresholds):
         threshold_status = "UNDETERMINED"
     elif used_defaults:
         threshold_status = "DEFAULT"

@@ -205,8 +205,14 @@ not exported, this field only prevents a credential (`-c S3cr3t1`) from being ta
 a threshold. A `:N` suffix (`"--cache:2,3"`) is accepted and ignored.
 
 **`modes`** — the exporter looks for a command argument equal to a key of `modes`
-(`-m usedvolume`, `--check=psu`, `-c psu,fan`, `-m hdstatus:2,5`). The first match
-gives the description, and selects the rules of `thresholds_by_mode`.
+(`-m usedvolume`, `--check=psu`, `-c psu,fan`, `-m hdstatus:2,5`). All recognized modes contribute their descriptions in command order, separated
+by line breaks, and select their own `thresholds_by_mode` rules. Identical
+mode/selector pairs are included once. A colon starts selectors belonging to the
+preceding mode: `hdstatus:2,5` describes one mode as `Hard drive status (2,5)`.
+A recognized mode name after a comma starts another mode, so
+`hdstatus:2,5,cpu` selects `hdstatus` with selectors `2,5`, followed by `cpu`.
+The generic `description` is used only when no mode is recognized. Nagios
+`_check_description` and `notes` still take precedence.
 
 **`warning`, `critical`** — a rule `"-x"` or `"-x:N"`:
 
@@ -234,6 +240,14 @@ the others.
 **`thresholds_by_mode`** — e.g.
 `{"CPULOAD": {"warning": "-l:2", "critical": "-l:3"}}`: with `-v CPULOAD -l 5,80,90` the
 thresholds are `80` and `90`; other modes use the general rules.
+With multiple modes, mode-specific thresholds occupy separate lines labeled
+with the mode name, such as `cpu: 80` and `volume: 85`. Shared thresholds are
+included once without a mode label. A declared rule that cannot be resolved
+makes the overall status `UNDETERMINED`, even if other modes have thresholds;
+`NOTES` identifies the affected mode. Explicit `_warning` and `_critical`
+override the entire corresponding field.
+
+JSON strings encode line breaks as `\n`; CSV quotes fields containing line breaks.
 
 ### Catalog validation
 
@@ -249,7 +263,7 @@ type. A badly written threshold rule (e.g. `"a:1"`) is reported when a check use
 | Value               | Order of precedence                                                                                                                                                                          |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `MONITORING_METHOD` | service `_monitoring_method`; host `_monitoring_method`; catalog `method` (plus ` via NRPE`/` via SSH` for remote checks); `NRPE`/`SSH` when the remote command is not in the catalog; `N/A` |
-| `DESCRIPTION`       | service `_check_description`; service `notes`; catalog `modes` entry for the selected mode; catalog `description`; `N/A`                                                                     |
+| `DESCRIPTION`       | service `_check_description`; service `notes`; catalog descriptions for all selected modes; catalog `description`; `N/A`                                                                     |
 
 ### Thresholds
 
